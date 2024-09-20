@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Three.js Video and Audio Sketch with Fixed Audio Playback</title>
+    <title>Three.js Video and Audio Sketch with 8 Quads</title>
     <style>
         body {
             margin: 0;
@@ -58,7 +58,7 @@
 
         function createQuad(index) {
             const video = document.createElement('video');
-            video.src = `src/video_${index + 1}.mp4`;
+            video.src = `src/video_${(index % 8) + 1}.mp4`; // Cycle through 8 videos
             video.loop = true;
             video.muted = true;
             video.play();
@@ -122,12 +122,12 @@
                     audioSources[unmuteCount].play();
                 }
                 unmuteCount++;
+            }
 
-                // Create a new quad if needed
-                if (activeQuads < maxQuads) {
-                    createQuad(activeQuads);
-                    activeQuads++;
-                }
+            // Create a new quad if needed
+            if (activeQuads < maxQuads) {
+                createQuad(activeQuads);
+                activeQuads++;
             }
         }
 
