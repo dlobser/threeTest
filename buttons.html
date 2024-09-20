@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mobile-Friendly Three.js Video and Audio</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        canvas { display: block; }
+        #playButton {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 100;
+            padding: 10px 20px;
+            font-size: 16px;
+        }
+        #controls {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            z-index: 100;
+        }
+        #controls button {
+            margin: 5px;
+            padding: 5px 10px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <button id="playButton">Play</button>
+    <div id="controls"></div>
+
+    <script type="module">
+        import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js';
+
+        let scene, camera, renderer;
+        const videos = [];
+        const videoTextures = [];
+        const quads = [];
+        let audioContext;
+        let audioSources = [];
+        let visibleCount = 1;
+
+        function init() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+            const aspectRatio = 9 / 16;
+            const quadWidth = 1;
+            const quadHeight = quadWidth / aspectRatio;
+            const quadGeometry = new THREE.PlaneGeometry(quadWidth, quadHeight);
+
+            for (let i = 0; i < 8; i++) {
+                const video = document.createElement('video');
+                video.src = `src/video_${i + 1}.mp4`;
+                video.loop = true;
+                video.muted = true;
+                video.playsInline = true; // Important for iOS
+                videos.push(video);
+
+                const texture = new THREE.VideoTexture(video);
+                videoTextures.push(texture);
+                
+                const material = new THREE.MeshBasicMaterial({ map: texture });
+                const quad = new THREE.Mesh(quadGeometry, material);
+                quads.push(quad);
+                scene.add(quad);
+            }
+
+            updateQuadPositions(visibleCount);
+            camera.position.z = 3;
+
+            document.getElementById('playButton').addEventListener('click', startExperience);
+
+            const controlsDiv = document.getElementById('controls');
+            for (let i = 1; i <= 8; i++) {
+                const button = document.createElement('button');
+                button.textContent = i;
+                button.addEventListener('click', () => updateQuadPositions(i));
+                controlsDiv.appendChild(button);
+            }
+
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function startExperience() {
+            videos.forEach(video => video.play());
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                loadAndPlayAudioWithDelay(0);
+            } else {
+                audioContext.resume();
+            }
+            this.style.display = 'none';
+        }
+
+        function updateQuadPositions(count) {
+            visibleCount = count;
+            const positions = [
+                [-0.5, 0.5], [0.5, 0.5],
+                [-0.5, -0.5], [0.5, -0.5],
+                [-1.5, 0.5], [1.5, 0.5],
+                [-1.5, -0.5], [1.5, -0.5]
+            ];
+
+            quads.forEach((quad, i) => {
+                if (i < count) {
+                    quad.visible = true;
+                    quad.position.set(positions[i][0], positions[i][1], 0);
+                } else {
+                    quad.visible = false;
+                }
+            });
+        }
+
+        function loadAndPlayAudioWithDelay(index) {
+            if (index >= 10) return;
+
+            fetch(`src/audio_${index + 1}.mp3`)
+                .then(response => response.arrayBuffer())
+                .then(arrayBuffer => audioContext.decodeAudioData(arrayBuffer))
+                .then(audioBuffer => {
+                    const source = audioContext.createBufferSource();
+                    source.buffer = audioBuffer;
+                    source.connect(audioContext.destination);
+                    source.loop = true;
+                    source.start(index);
+                    audioSources.push(source);
+                    loadAndPlayAudioWithDelay(index + 1);
+                })
+                .catch(e => console.error('Audio loading error:', e));
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+        }
+
+        init();
+        animate();
+    </script>
+</body>
+</html>
