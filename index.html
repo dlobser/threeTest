@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Three.js Video and Audio Sketch</title>
+    <title>Three.js Video and Audio Sketch with Fixed Audio Playback</title>
     <style>
         body {
             margin: 0;
@@ -14,10 +14,20 @@
         canvas {
             display: block;
         }
+
+        #startButton {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 10px 20px;
+            font-size: 18px;
+        }
     </style>
 </head>
 
 <body>
+    <button id="startButton">Start Experience</button>
     <script type="importmap">
         {
             "imports": {
@@ -37,9 +47,9 @@
         const quads = [];
         const videoTextures = [];
 
-        const aspectRatio = 9 / 16;
-        const quadWidth = 1;
-        const quadHeight = quadWidth / aspectRatio;
+        const aspectRatio = 9 / 16; // Vertical 9:16 aspect ratio
+        const quadHeight = 2; // Make quad height fill the view
+        const quadWidth = quadHeight * aspectRatio;
 
         const quadGeometry = new THREE.PlaneGeometry(quadWidth, quadHeight);
 
@@ -65,57 +75,101 @@
         }
 
         function updateQuadPositions() {
-            const positions = [
-                [-0.5, 0.5], [0.5, 0.5],
-                [-0.5, -0.5], [0.5, -0.5],
-                [-1.5, 0.5], [1.5, 0.5],
-                [-1.5, -0.5], [1.5, -0.5]
-            ];
-
             for (let i = 0; i < quads.length; i++) {
-                quads[i].position.set(positions[i][0] * quadWidth, positions[i][1] * quadHeight, 0);
+                quads[i].position.set(i * quadWidth, 0, 0);
             }
+            updateCameraPanning();
         }
 
         // Create the first quad
         createQuad(0);
         activeQuads = 1;
 
-        // Event listener for mouse clicks or screen taps
-        document.addEventListener('click', () => {
-            if (activeQuads < maxQuads) {
-                createQuad(activeQuads);
-                activeQuads++;
-            }
-        });
-
         const audioLoader = new THREE.AudioLoader();
         const listener = new THREE.AudioListener();
         camera.add(listener);
 
         const audioSources = [];
+        let unmuteCount = 0;
 
-        function loadAndPlayAudioWithDelay(index) {
-            if (index >= 10) return;
-
-            const sound = new THREE.Audio(listener);
-            audioLoader.load(`src/audio_${index + 1}.mp3`, (buffer) => {
-                sound.setBuffer(buffer);
-                sound.setLoop(true);
-                sound.setVolume(0.1);
-                setTimeout(() => {
-                    sound.play();
-                    loadAndPlayAudioWithDelay(index + 1);
-                }, index * 1000);
+        function loadAudio(index) {
+            return new Promise((resolve) => {
+                const sound = new THREE.Audio(listener);
+                audioLoader.load(`src/audio_${index + 1}.mp3`, (buffer) => {
+                    sound.setBuffer(buffer);
+                    sound.setLoop(true);
+                    sound.setVolume(0); // Start with volume at 0
+                    audioSources.push(sound);
+                    resolve();
+                });
             });
-            audioSources.push(sound);
         }
 
-        loadAndPlayAudioWithDelay(0);
-        camera.position.z = 3;
+        // Load all 4 audio files
+        Promise.all([
+            loadAudio(0),
+            loadAudio(1),
+            loadAudio(2),
+            loadAudio(3)
+        ]).then(() => {
+            document.getElementById('startButton').style.display = 'block';
+        });
+
+        function handleTap() {
+            if (unmuteCount < 4) {
+                audioSources[unmuteCount].setVolume(1); // Set volume to full
+                if (!audioSources[unmuteCount].isPlaying) {
+                    audioSources[unmuteCount].play();
+                }
+                unmuteCount++;
+
+                // Create a new quad if needed
+                if (activeQuads < maxQuads) {
+                    createQuad(activeQuads);
+                    activeQuads++;
+                }
+            }
+        }
+
+        document.getElementById('startButton').addEventListener('click', () => {
+            document.getElementById('startButton').style.display = 'none';
+            document.addEventListener('click', handleTap);
+        });
+
+        // Camera panning setup
+        const panDuration = 5; // seconds
+        let panDirection = 1;
+        let panProgress = 0;
+
+        function updateCameraPanning() {
+            if (activeQuads <= 1) {
+                camera.position.set(0, 0, 1.5); // Centered on single quad
+                camera.lookAt(0, 0, 0);
+            } else {
+                const panRange = (activeQuads - 1) * quadWidth;
+                camera.position.z = 1.5; // Fixed distance from quads
+            }
+        }
+
+        function animateCameraPan() {
+            if (activeQuads <= 1) return; // No panning for single quad
+
+            panProgress += panDirection * (1 / (60 * panDuration)); // Assuming 60 FPS
+
+            if (panProgress > 1 || panProgress < 0) {
+                panDirection *= -1; // Reverse direction
+                panProgress = Math.max(0, Math.min(1, panProgress)); // Clamp between 0 and 1
+            }
+
+            const panRange = (activeQuads - 1) * quadWidth;
+            const xPosition = panProgress * panRange;
+            camera.position.x = xPosition;
+            camera.lookAt(xPosition, 0, 0);
+        }
 
         function animate() {
             requestAnimationFrame(animate);
+            animateCameraPan();
             renderer.render(scene, camera);
         }
 
