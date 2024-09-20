@@ -1,14 +1,22 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Three.js Video and Audio Sketch</title>
     <style>
-        body { margin: 0; overflow: hidden; }
-        canvas { display: block; }
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+        }
     </style>
 </head>
+
 <body>
     <script type="importmap">
         {
@@ -26,47 +34,8 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        // const videos = [];
-        // const videoTextures = [];
-
-        // for (let i = 0; i < 8; i++) {
-        //     const video = document.createElement('video');
-        //     video.src = `video_${i + 1}.mp4`;
-        //     video.loop = true;
-        //     video.muted = true;
-        //     video.play();
-            
-        //     videos.push(video);
-        //     videoTextures.push(new THREE.VideoTexture(video));
-        // }
-
-        // const quadGeometry = new THREE.PlaneGeometry(1, 1);
-        // const quadMaterials = videoTextures.map(texture => new THREE.MeshBasicMaterial({ map: texture }));
-
-        // const quads = [
-        //     new THREE.Mesh(quadGeometry, quadMaterials[0]),
-        //     new THREE.Mesh(quadGeometry, quadMaterials[1]),
-        //     new THREE.Mesh(quadGeometry, quadMaterials[2]),
-        //     new THREE.Mesh(quadGeometry, quadMaterials[3]),
-        //     new THREE.Mesh(quadGeometry, quadMaterials[4]),
-        //     new THREE.Mesh(quadGeometry, quadMaterials[5]),
-        //     new THREE.Mesh(quadGeometry, quadMaterials[6]),
-        //     new THREE.Mesh(quadGeometry, quadMaterials[7])
-        // ];
-
-        // quads[0].position.set(-0.5, 0.5, 0);
-        // quads[1].position.set(0.5, 0.5, 0);
-        // quads[2].position.set(-0.5, -0.5, 0);
-        // quads[3].position.set(0.5, -0.5, 0);
-        // quads[4].position.set(-1.5, 0.5, 0);
-        // quads[5].position.set(1.5, 0.5, 0);
-        // quads[6].position.set(-1.5, -0.5, 0);
-        // quads[7].position.set(1.5, -0.5, 0);
-
-        const videos = [];
-        const videoTextures = [];
         const quads = [];
-        // const scene = new THREE.Scene();
+        const videoTextures = [];
 
         const aspectRatio = 9 / 16;
         const quadWidth = 1;
@@ -74,24 +43,28 @@
 
         const quadGeometry = new THREE.PlaneGeometry(quadWidth, quadHeight);
 
-        for (let i = 0; i < 8; i++) {
+        let activeQuads = 0;
+        const maxQuads = 8;
+
+        function createQuad(index) {
             const video = document.createElement('video');
-            video.src = `src/video_${i + 1}.mp4`;
+            video.src = `src/video_${index + 1}.mp4`;
             video.loop = true;
             video.muted = true;
             video.play();
-            
-            videos.push(video);
+
             const texture = new THREE.VideoTexture(video);
             videoTextures.push(texture);
-            
+
             const material = new THREE.MeshBasicMaterial({ map: texture });
             const quad = new THREE.Mesh(quadGeometry, material);
             quads.push(quad);
             scene.add(quad);
+
+            updateQuadPositions();
         }
 
-        function updateQuadPositions(visibleCount) {
+        function updateQuadPositions() {
             const positions = [
                 [-0.5, 0.5], [0.5, 0.5],
                 [-0.5, -0.5], [0.5, -0.5],
@@ -100,36 +73,21 @@
             ];
 
             for (let i = 0; i < quads.length; i++) {
-                if (i < visibleCount) {
-                    quads[i].visible = true;
-                    quads[i].position.set(positions[i][0] * quadWidth, positions[i][1] * quadHeight, 0);
-                } else {
-                    quads[i].visible = false;
-                }
+                quads[i].position.set(positions[i][0] * quadWidth, positions[i][1] * quadHeight, 0);
             }
         }
 
-        // Initial setup: show only one video
-        updateQuadPositions(1);
+        // Create the first quad
+        createQuad(0);
+        activeQuads = 1;
 
-        // Event listener for key presses
-        document.addEventListener('keydown', (event) => {
-            const key = parseInt(event.key);
-            if (key >= 1 && key <= 8) {
-                updateQuadPositions(key);
+        // Event listener for mouse clicks or screen taps
+        document.addEventListener('click', () => {
+            if (activeQuads < maxQuads) {
+                createQuad(activeQuads);
+                activeQuads++;
             }
         });
-
-        // Your existing Three.js render loop here
-        // function animate() {
-        //     requestAnimationFrame(animate);
-        //     // Update your controls, renderer, etc.
-        //     renderer.render(scene, camera);
-        // }
-        // animate();
-
-
-        quads.forEach(quad => scene.add(quad));
 
         const audioLoader = new THREE.AudioLoader();
         const listener = new THREE.AudioListener();
@@ -170,4 +128,5 @@
         });
     </script>
 </body>
+
 </html>
